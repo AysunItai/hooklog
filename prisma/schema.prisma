@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  streams Stream[]
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model Stream {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  name      String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events Event[]
+}
+
+model Event {
+  id            String   @id @default(cuid())
+  streamId      String
+  stream        Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  method        String
+  path          String
+  headers       Json     // Store headers as JSON object
+  rawBody       Bytes    // Store raw body as bytea
+  sourceIp      String?
+  contentLength Int?
+  receivedAt    DateTime @default(now())
+
+  replayAttempts ReplayAttempt[]
+
+  @@index([streamId, receivedAt, id])
+  @@index([receivedAt, id])
+}
+
+model ReplayAttempt {
+  id              String   @id @default(cuid())
+  eventId         String
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  targetUrl       String
+  attemptNumber   Int      @default(1)
+  status          String   // "success", "error", "timeout"
+  durationMs      Int?
+  responseStatus  Int?
+  responseBody    String?  // Truncated response body
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+
+  @@index([eventId])
+}
