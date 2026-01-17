@@ -7,9 +7,8 @@ export function createReplayRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const controller = new ReplayController(prisma);
 
-  router.use(authMiddleware);
-
-  router.post('/events/:id/replay', controller.replay.bind(controller));
+  // Apply auth middleware only to the replay route
+  router.post('/events/:id/replay', authMiddleware, controller.replay.bind(controller));
 
   return router;
 }

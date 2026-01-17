@@ -3,6 +3,7 @@ import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import pinoHttp from 'pino-http';
 import path from 'path';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import { PrismaClient } from '@prisma/client';
 import { config } from './config';
 import { logger } from './utils/logger';
@@ -72,48 +73,40 @@ export function createApp(prisma: PrismaClient): Express {
   // API routes
   app.use('/', createRoutes(prisma));
 
-  // Root route - API information (only in development)
-  if (config.nodeEnv === 'development') {
-    app.get('/', (req, res) => {
-      res.json({
-        name: 'Hooklog API',
-        version: '1.0.0',
-        description: 'Production-grade webhook capture and replay API',
-        documentation: '/api-docs',
-        frontend: 'http://localhost:5173',
-        endpoints: {
-          health: '/health',
-          auth: {
-            register: 'POST /auth/register',
-            login: 'POST /auth/login',
-            me: 'GET /auth/me',
-          },
-          streams: {
-            create: 'POST /streams',
-            list: 'GET /streams',
-          },
-          webhooks: {
-            ingest: 'POST /i/:token',
-          },
-          events: {
-            list: 'GET /events',
-            get: 'GET /events/:id',
-          },
-          replay: {
-            replay: 'POST /events/:id/replay',
-          },
-        },
-      });
-    });
-  }
-
-  // Serve frontend in production
+  // Serve frontend
   if (config.nodeEnv === 'production') {
+    // In production, serve built frontend
     const frontendPath = path.join(__dirname, '../../frontend/dist');
     app.use(express.static(frontendPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(frontendPath, 'index.html'));
     });
+  } else {
+    // In development, proxy frontend requests to Vite dev server
+    // Proxy all non-API routes to the frontend dev server
+    app.use(
+      '/',
+      (req, res, next) => {
+        // Skip API routes - they're already handled above
+        if (
+          req.path.startsWith('/api') ||
+          req.path.startsWith('/auth') ||
+          req.path.startsWith('/streams') ||
+          req.path.startsWith('/events') ||
+          req.path.startsWith('/i/') ||
+          req.path === '/health' ||
+          req.path.startsWith('/api-docs')
+        ) {
+          return next();
+        }
+        // Proxy to Vite dev server
+        createProxyMiddleware({
+          target: 'http://localhost:5173',
+          changeOrigin: true,
+          ws: true,
+        })(req, res, next);
+      }
+    );
   }
 
   // Error handler (must be last)

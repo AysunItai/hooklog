@@ -1,5 +1,6 @@
 // Load environment variables first
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config();
 
 import { createApp } from './app';
 import { prisma } from './db/client';
