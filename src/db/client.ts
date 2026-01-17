@@ -1,15 +1,15 @@
 import { PrismaClient } from '@prisma/client';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger'; // or whatever you use
 
-export const prisma = new PrismaClient({
-  log:
-    process.env.NODE_ENV === 'development'
-      ? ['query', 'error', 'warn']
-      : ['error'],
-});
+export const prisma = new PrismaClient();
 
-// Graceful shutdown
-process.on('beforeExit', async () => {
-  await prisma.$disconnect();
-  logger.info('Database connection closed');
-});
+export async function initDb() {
+  try {
+    await prisma.$connect();
+    logger.info('Prisma connected');
+  } catch (err) {
+    // log everything, not just msg
+    logger.error({ err }, 'Prisma failed to connect');
+    throw err;
+  }
+}
