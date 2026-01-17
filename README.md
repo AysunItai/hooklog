@@ -35,6 +35,16 @@ src/
 - PostgreSQL 16+
 - npm or yarn
 
+## Project Structure
+
+```
+HOOKLOG/
+├── frontend/          # React frontend (Vite + TypeScript + Tailwind)
+├── src/               # Backend API (Express + TypeScript)
+├── prisma/            # Database schema
+└── ...
+```
+
 ## Setup
 
 1. **Clone and install dependencies:**
@@ -77,7 +87,7 @@ npm run prisma:generate
 npm run prisma:migrate
 ```
 
-5. **Start the server:**
+5. **Start the backend server:**
 
 Development mode:
 
@@ -93,6 +103,18 @@ npm start
 ```
 
 The API will be available at `http://localhost:3000`
+
+6. **Start the frontend (optional, for development):**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend will be available at `http://localhost:5173`
+
+**Note:** In production mode, the backend serves the frontend automatically. In development, run both servers separately.
 
 ## API Documentation
 
