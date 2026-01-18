@@ -60,7 +60,8 @@ export default function Streams() {
   };
 
   const getIngestUrl = (token: string) => {
-    return `${window.location.origin.replace(':5173', ':3000')}/i/${token}`;
+    // Use current origin (works for both dev and production)
+    return `${window.location.origin}/i/${token}`;
   };
 
   if (loading) {

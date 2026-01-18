@@ -1,7 +1,17 @@
 import axios from 'axios';
 
+// Use environment variable for API URL in production, or empty string for relative URLs
+const getBaseURL = () => {
+  // In production, use relative URLs (same origin)
+  // In development, Vite proxy handles routing
+  if (import.meta.env.PROD) {
+    return ''; // Relative URLs work in production since frontend and backend are on same domain
+  }
+  return ''; // Development: use relative URLs, Vite proxy will handle it
+};
+
 export const api = axios.create({
-  baseURL: '', // Backend routes are at root level (e.g., /streams, /events, not /api/streams)
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },

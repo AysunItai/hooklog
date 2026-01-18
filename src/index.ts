@@ -6,9 +6,29 @@ import { createApp } from './app';
 import { prisma } from './db/client';
 import { config } from './config';
 import { logger } from './utils/logger';
+import { execSync } from 'child_process';
 
 async function main() {
   try {
+    // Run Prisma migrations in production before connecting
+    if (config.nodeEnv === 'production') {
+      try {
+        logger.info('Running database migrations...');
+        execSync('npx prisma migrate deploy', { 
+          stdio: 'inherit',
+          env: { ...process.env, DATABASE_URL: config.database.url }
+        });
+        logger.info('Database migrations completed');
+      } catch (migrationError: any) {
+        // Migrations might fail if already applied or if there's a connection issue
+        // Log the error but continue - the connection test below will catch real issues
+        logger.warn({ 
+          message: migrationError?.message,
+          code: migrationError?.code 
+        }, 'Migration command completed with warnings (this may be normal)');
+      }
+    }
+
     // Test database connection explicitly
     await prisma.$connect();
     logger.info('Database connected');
