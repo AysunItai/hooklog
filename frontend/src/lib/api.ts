@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: '', // Backend routes are at root level (e.g., /streams, /events, not /api/streams)
   headers: {
     'Content-Type': 'application/json',
   },
