@@ -10,14 +10,10 @@ import { config } from './config';
 import { logger } from './utils/logger';
 import { requestIdMiddleware } from './middleware/requestId';
 import { errorHandler } from './middleware/errorHandler';
-import { setPrismaForAuth } from './middleware/auth';
 import { createRoutes } from './routes';
 
 export function createApp(prisma: PrismaClient): Express {
   const app = express();
-
-  // Initialize auth middleware with Prisma (for dev user creation)
-  setPrismaForAuth(prisma);
 
   // Trust proxy for accurate IP addresses
   app.set('trust proxy', true);
@@ -86,7 +82,10 @@ export function createApp(prisma: PrismaClient): Express {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // Serve frontend (must be before API routes in development to handle browser navigation)
+  // API routes (must be BEFORE frontend serving to ensure API requests are handled correctly)
+  app.use('/', createRoutes(prisma));
+
+  // Serve frontend (after API routes so API calls are handled first)
   if (config.nodeEnv === 'production') {
     // In production, serve built frontend
     // Try multiple possible paths for frontend dist
@@ -107,8 +106,36 @@ export function createApp(prisma: PrismaClient): Express {
     }
     
     if (frontendPath) {
-      app.use(express.static(frontendPath));
-      app.get('*', (req, res) => {
+      // Only serve static files for non-API routes
+      app.use((req, res, next) => {
+        // Skip static file serving for API routes
+        if (
+          req.path.startsWith('/auth') ||
+          req.path.startsWith('/streams') ||
+          req.path.startsWith('/events') ||
+          req.path.startsWith('/i/') ||
+          req.path.startsWith('/api-docs') ||
+          req.path === '/health'
+        ) {
+          return next();
+        }
+        // Serve static files for other routes
+        express.static(frontendPath!)(req, res, next);
+      });
+      
+      // Catch-all for frontend routes (SPA fallback) - only for GET requests
+      app.get('*', (req, res, next) => {
+        // Skip if this is an API route
+        if (
+          req.path.startsWith('/auth') ||
+          req.path.startsWith('/streams') ||
+          req.path.startsWith('/events') ||
+          req.path.startsWith('/i/') ||
+          req.path.startsWith('/api-docs') ||
+          req.path === '/health'
+        ) {
+          return next();
+        }
         res.sendFile(path.join(frontendPath!, 'index.html'));
       });
     } else {
@@ -132,7 +159,7 @@ export function createApp(prisma: PrismaClient): Express {
     }
   } else {
     // In development, proxy frontend requests to Vite dev server
-    // This must be BEFORE API routes so browser navigation is proxied first
+    // This must be AFTER API routes so API calls are handled first
     const proxyMiddleware = createProxyMiddleware({
       target: 'http://localhost:5173',
       changeOrigin: true,
@@ -145,7 +172,10 @@ export function createApp(prisma: PrismaClient): Express {
       if (
         req.path.startsWith('/api-docs') ||
         req.path === '/health' ||
-        req.path.startsWith('/i/')
+        req.path.startsWith('/i/') ||
+        req.path.startsWith('/auth') ||
+        req.path.startsWith('/streams') ||
+        req.path.startsWith('/events')
       ) {
         return next();
       }
@@ -154,10 +184,9 @@ export function createApp(prisma: PrismaClient): Express {
       const acceptHeader = req.headers.accept || '';
       const isApiCall = 
         acceptHeader.includes('application/json') ||
-        (req.method !== 'GET' && req.method !== 'HEAD') ||
-        req.path.startsWith('/auth');
+        (req.method !== 'GET' && req.method !== 'HEAD');
 
-      // If it's an API call, let it continue to API routes
+      // If it's an API call, let it continue (should have been handled by API routes)
       if (isApiCall) {
         return next();
       }
@@ -178,9 +207,6 @@ export function createApp(prisma: PrismaClient): Express {
       }
     });
   }
-
-  // API routes (mounted after frontend proxy so API calls can still be handled)
-  app.use('/', createRoutes(prisma));
 
   // Error handler (must be last)
   app.use(errorHandler);
