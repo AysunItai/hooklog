@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Plus, Copy, Check, Trash2 } from 'lucide-react';
+import { Plus, Copy, Check } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Stream {

@@ -22,13 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // In development, auto-login as dev user
-    if (import.meta.env.DEV) {
-      setUser({ id: 'dev-user-id', email: 'dev@hooklog.local' });
-      setToken('dev-token');
-      return;
-    }
-    
+    // Check for stored token on mount
     const storedToken = localStorage.getItem('token');
     if (storedToken) {
       setToken(storedToken);
@@ -49,13 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    // In development, auto-login
-    if (import.meta.env.DEV) {
-      setUser({ id: 'dev-user-id', email: 'dev@hooklog.local' });
-      setToken('dev-token');
-      return;
-    }
-    
     const response = await api.post('/auth/login', { email, password });
     const { token: newToken, user: newUser } = response.data;
     setToken(newToken);
@@ -64,13 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (email: string, password: string) => {
-    // In development, auto-login
-    if (import.meta.env.DEV) {
-      setUser({ id: 'dev-user-id', email: 'dev@hooklog.local' });
-      setToken('dev-token');
-      return;
-    }
-    
     const response = await api.post('/auth/register', { email, password });
     const { token: newToken, user: newUser } = response.data;
     setToken(newToken);
