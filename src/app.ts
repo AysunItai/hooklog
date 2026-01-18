@@ -3,6 +3,7 @@ import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import pinoHttp from 'pino-http';
 import path from 'path';
+import fs from 'fs';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { PrismaClient } from '@prisma/client';
 import { config } from './config';
@@ -88,11 +89,47 @@ export function createApp(prisma: PrismaClient): Express {
   // Serve frontend (must be before API routes in development to handle browser navigation)
   if (config.nodeEnv === 'production') {
     // In production, serve built frontend
-    const frontendPath = path.join(__dirname, '../../frontend/dist');
-    app.use(express.static(frontendPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(frontendPath, 'index.html'));
-    });
+    // Try multiple possible paths for frontend dist
+    const possiblePaths = [
+      path.join(__dirname, '../../frontend/dist'), // Relative to compiled dist
+      path.join(process.cwd(), 'frontend/dist'), // Relative to project root
+      path.resolve(__dirname, '../../frontend/dist'), // Absolute from dist
+    ];
+    
+    let frontendPath: string | null = null;
+    for (const testPath of possiblePaths) {
+      const indexPath = path.join(testPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        frontendPath = testPath;
+        logger.info({ frontendPath: testPath }, 'Found frontend build');
+        break;
+      }
+    }
+    
+    if (frontendPath) {
+      app.use(express.static(frontendPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(frontendPath!, 'index.html'));
+      });
+    } else {
+      // Frontend not found - serve API info instead
+      logger.warn('Frontend build not found, serving API only');
+      app.get('/', (req, res) => {
+        res.json({
+          name: 'Hooklog API',
+          version: '1.0.0',
+          message: 'API is running. Frontend build not found.',
+          endpoints: {
+            health: '/health',
+            docs: '/api-docs',
+            auth: '/auth/*',
+            streams: '/streams',
+            events: '/events',
+            webhooks: '/i/:token',
+          },
+        });
+      });
+    }
   } else {
     // In development, proxy frontend requests to Vite dev server
     // This must be BEFORE API routes so browser navigation is proxied first
